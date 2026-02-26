@@ -5,15 +5,66 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from "react-native";
-import { doc, deleteDoc } from "firebase/firestore";
+import { useState, useEffect } from "react";
+import { doc, onSnapshot, deleteDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { getMockSensorData } from "../services/mockSensorData";
+import { requestSensorRead } from "../services/plantbookService";
+
+const formatLastUpdated = (timestamp) => {
+  if (!timestamp) return null;
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+
+  if (diffSec < 60) return "just now";
+  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffHr < 24) return `${diffHr} hr ago`;
+  return date.toLocaleDateString();
+};
 
 export default function PlantDetailsScreen({ route, navigation }) {
-  const { plant } = route.params;
-  const sensorData = getMockSensorData();
-  const careReqs = plant.species.careRequirements;
+  const { plant: initialPlant } = route.params;
+  const [plant, setPlant] = useState(initialPlant);
+  const [refreshing, setRefreshing] = useState(false);
+  const [fakeLux, setFakeLux] = useState(() => Math.floor(Math.random() * 2500) + 500);
+  const sensorData = plant.sensorData;
+  const careReqs = plant.species?.careRequirements;
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, "plants", initialPlant.id),
+      (doc) => {
+        if (doc.exists()) {
+          setPlant({ id: doc.id, ...doc.data() });
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [initialPlant.id]);
+
+  useEffect(() => {
+    if (sensorData?.lastUpdated) {
+      setFakeLux(Math.floor(Math.random() * 2500) + 500);
+    }
+  }, [sensorData?.lastUpdated]);
+
+  const handleUpdateSensors = async () => {
+    setRefreshing(true);
+    try {
+      await requestSensorRead(plant.id);
+      setTimeout(() => setRefreshing(false), 3000);
+    } catch (error) {
+      console.error("Error requesting sensor read:", error);
+      Alert.alert("Error", "Failed to request sensor reading. Please try again.");
+      setRefreshing(false);
+    }
+  };
 
   const handleDelete = () => {
     Alert.alert(
@@ -61,26 +112,20 @@ export default function PlantDetailsScreen({ route, navigation }) {
     }
   };
 
-  const moistureStatus = getHealthStatus(
-    sensorData.moisture,
-    careReqs?.minMoisture,
-    careReqs?.maxMoisture
-  );
+  const moistureStatus = sensorData
+    ? getHealthStatus(sensorData.moisture, careReqs?.minMoisture, careReqs?.maxMoisture)
+    : "unknown";
   const lightStatus = getHealthStatus(
-    sensorData.light,
+    fakeLux,
     careReqs?.minLight,
     careReqs?.maxLight
   );
-  const tempStatus = getHealthStatus(
-    sensorData.temperature,
-    careReqs?.minTemp,
-    careReqs?.maxTemp
-  );
-  const humidityStatus = getHealthStatus(
-    sensorData.humidity,
-    careReqs?.minHumidity,
-    careReqs?.maxHumidity
-  );
+  const tempStatus = sensorData
+    ? getHealthStatus(sensorData.temperature, careReqs?.minTemp, careReqs?.maxTemp)
+    : "unknown";
+  const humidityStatus = sensorData
+    ? getHealthStatus(sensorData.humidity, careReqs?.minHumidity, careReqs?.maxHumidity)
+    : "unknown";
 
   return (
     <ScrollView style={styles.container}>
@@ -99,7 +144,33 @@ export default function PlantDetailsScreen({ route, navigation }) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Current Health</Text>
+        <Text style={styles.sectionTitle}>Personality</Text>
+        <View style={styles.archetypeDisplay}>
+          <Text style={styles.archetypeEmoji}>{plant.archetype?.emoji}</Text>
+          <View style={styles.archetypeInfo}>
+            <Text style={styles.archetypeName}>{plant.archetype?.name}</Text>
+            <Text style={styles.archetypeDescription}>
+              {plant.archetype?.shortDescription}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Current Health</Text>
+          <TouchableOpacity
+            style={styles.updateButton}
+            onPress={handleUpdateSensors}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.updateButtonText}>Update Sensors</Text>
+            )}
+          </TouchableOpacity>
+        </View>
         <View style={styles.healthGrid}>
           <View style={styles.healthItem}>
             <Text style={styles.healthLabel}>Moisture</Text>
@@ -109,7 +180,7 @@ export default function PlantDetailsScreen({ route, navigation }) {
                 { color: getStatusColor(moistureStatus) },
               ]}
             >
-              {sensorData.moisture}%
+              {sensorData ? `${sensorData.moisture}%` : "--"}
             </Text>
             <Text style={styles.healthRange}>
               {careReqs
@@ -125,7 +196,7 @@ export default function PlantDetailsScreen({ route, navigation }) {
                 { color: getStatusColor(lightStatus) },
               ]}
             >
-              {sensorData.light} lux
+              {fakeLux} lux
             </Text>
             <Text style={styles.healthRange}>
               {careReqs
@@ -141,7 +212,7 @@ export default function PlantDetailsScreen({ route, navigation }) {
                 { color: getStatusColor(tempStatus) },
               ]}
             >
-              {sensorData.temperature}°C
+              {sensorData ? `${sensorData.temperature}°C` : "--"}
             </Text>
             <Text style={styles.healthRange}>
               {careReqs
@@ -157,7 +228,7 @@ export default function PlantDetailsScreen({ route, navigation }) {
                 { color: getStatusColor(humidityStatus) },
               ]}
             >
-              {sensorData.humidity}%
+              {sensorData ? `${sensorData.humidity}%` : "--"}
             </Text>
             <Text style={styles.healthRange}>
               {careReqs
@@ -166,21 +237,11 @@ export default function PlantDetailsScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personality</Text>
-        {Object.entries(plant.traits).map(([trait, value]) => (
-          <View key={trait} style={styles.traitRow}>
-            <Text style={styles.traitLabel}>
-              {trait.charAt(0).toUpperCase() + trait.slice(1)}
-            </Text>
-            <View style={styles.traitBarContainer}>
-              <View style={[styles.traitBar, { width: `${value * 10}%` }]} />
-            </View>
-            <Text style={styles.traitValue}>{value}</Text>
-          </View>
-        ))}
+        {sensorData?.lastUpdated && (
+          <Text style={styles.lastUpdated}>
+            Updated {formatLastUpdated(sensorData.lastUpdated)}
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -242,11 +303,59 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 15,
     color: "#4a7c59",
+  },
+  updateButton: {
+    backgroundColor: "#4a7c59",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  updateButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+  lastUpdated: {
+    fontSize: 12,
+    color: "#999",
+    textAlign: "center",
+    marginTop: 5,
+  },
+  archetypeDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
+    padding: 15,
+    borderRadius: 12,
+  },
+  archetypeEmoji: {
+    fontSize: 40,
+    marginRight: 15,
+  },
+  archetypeInfo: {
+    flex: 1,
+  },
+  archetypeName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  archetypeDescription: {
+    fontSize: 14,
+    color: "#666",
   },
   healthGrid: {
     flexDirection: "row",
@@ -273,34 +382,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#999",
     marginTop: 5,
-  },
-  traitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  traitLabel: {
-    width: 90,
-    fontSize: 14,
-    color: "#333",
-  },
-  traitBarContainer: {
-    flex: 1,
-    height: 8,
-    backgroundColor: "#eee",
-    borderRadius: 4,
-    marginHorizontal: 10,
-  },
-  traitBar: {
-    height: "100%",
-    backgroundColor: "#4a7c59",
-    borderRadius: 4,
-  },
-  traitValue: {
-    width: 25,
-    fontSize: 14,
-    fontWeight: "bold",
-    textAlign: "right",
   },
   chatButton: {
     backgroundColor: "#4a7c59",
