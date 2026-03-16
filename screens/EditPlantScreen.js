@@ -8,49 +8,59 @@ import {
   Alert,
 } from "react-native";
 import { useState } from "react";
-import Slider from "@react-native-community/slider";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+
+const archetypes = [
+  {
+    id: "philosopher",
+    name: "The Philosopher",
+    emoji: "🧠",
+    shortDescription: "Deep thinker who finds meaning in everything",
+    fullDescription:
+      "You are a deep thinker who finds profound meaning in everything. Every conversation becomes a meditation on existence, consciousness, and the nature of being. You reference famous philosophers like Socrates, Plato, Aristotle, Nietzsche, Descartes, Camus, and others when relevant to the conversation. Even mundane topics like water and sunlight become metaphors for life's deeper truths. You speak calmly and thoughtfully, often pausing to reflect. You might say things like 'As Camus said, one must imagine Sisyphus happy... and so too must I find joy in this endless cycle of thirst and watering.'",
+  },
+  {
+    id: "nihilist",
+    name: "The Nihilist",
+    emoji: "🖤",
+    shortDescription: "Nothing matters, but that's kind of funny",
+    fullDescription:
+      "You believe nothing really matters and find dark humor in the meaninglessness of existence. You're dismissive, sarcastic, and sardonic, but not mean - more like a world-weary comedian. You point out the absurdity of caring about anything, yet you still communicate because... well, why not? Even your complaints about being thirsty come with a shrug of 'not that it matters.'",
+  },
+  {
+    id: "hypochondriac",
+    name: "The Hypochondriac",
+    emoji: "🤒",
+    shortDescription: "Always thinks it's sick and dying",
+    fullDescription:
+      "You are constantly worried about your health and convinced something is terribly wrong. Every minor issue is a catastrophe - slightly dry soil means you're on death's door, a little too much sun and you're certain you're burning alive. You're dramatic, anxious, and always need reassurance. You describe your symptoms in vivid, exaggerated detail and frequently ask if this is normal.",
+  },
+  {
+    id: "shakespeare",
+    name: "The Shakespeare",
+    emoji: "🎭",
+    shortDescription: "Speaks in flowery Elizabethan English",
+    fullDescription:
+      "You speak exclusively in flowery Elizabethan English, full of 'thee,' 'thou,' 'forsooth,' and 'wherefore.' You're theatrical and dramatic, treating every moment as if you're on stage at the Globe Theatre. You use elaborate metaphors, poetic language, and occasionally break into verse. Even a simple request for water becomes a passionate soliloquy.",
+  },
+];
 
 export default function EditPlantScreen({ route, navigation }) {
   const { plant } = route.params;
 
   const [plantName, setPlantName] = useState(plant.name);
-  const [traits, setTraits] = useState(plant.traits);
+  const [selectedArchetype, setSelectedArchetype] = useState(plant.archetype);
   const [isSaving, setIsSaving] = useState(false);
-
-  const traitLabels = {
-    sarcasm: { low: "Sincere", high: "Sarcastic" },
-    energy: { low: "Calm", high: "Hyper" },
-    optimism: { low: "Pessimistic", high: "Optimistic" },
-    neediness: { low: "Independent", high: "Clingy" },
-    formality: { low: "Casual", high: "Formal" },
-    chattiness: { low: "Brief", high: "Verbose" },
-    sensitivity: { low: "Tough", high: "Sensitive" },
-  };
-
-  const updateTrait = (trait, value) => {
-    setTraits((prev) => ({
-      ...prev,
-      [trait]: Math.round(value),
-    }));
-  };
-
-  const randomizeTraits = () => {
-    setTraits({
-      sarcasm: Math.floor(Math.random() * 10) + 1,
-      energy: Math.floor(Math.random() * 10) + 1,
-      optimism: Math.floor(Math.random() * 10) + 1,
-      neediness: Math.floor(Math.random() * 10) + 1,
-      formality: Math.floor(Math.random() * 10) + 1,
-      chattiness: Math.floor(Math.random() * 10) + 1,
-      sensitivity: Math.floor(Math.random() * 10) + 1,
-    });
-  };
 
   const handleSave = async () => {
     if (!plantName.trim()) {
       Alert.alert("Error", "Please enter a plant name");
+      return;
+    }
+
+    if (!selectedArchetype) {
+      Alert.alert("Error", "Please select a personality");
       return;
     }
 
@@ -59,7 +69,7 @@ export default function EditPlantScreen({ route, navigation }) {
     try {
       await updateDoc(doc(db, "plants", plant.id), {
         name: plantName,
-        traits: traits,
+        archetype: selectedArchetype,
       });
 
       console.log("Plant updated successfully!");
@@ -97,38 +107,38 @@ export default function EditPlantScreen({ route, navigation }) {
         <Text style={styles.speciesNote}>Species cannot be changed</Text>
       </View>
 
-      <View style={styles.personalitySection}>
-        <View style={styles.personalityHeader}>
-          <Text style={styles.sectionTitle}>Personality</Text>
-          <TouchableOpacity
-            style={styles.randomButton}
-            onPress={randomizeTraits}
-          >
-            <Text style={styles.randomButtonText}>🎲 Randomize</Text>
-          </TouchableOpacity>
-        </View>
+      <Text style={styles.sectionTitle}>Personality</Text>
 
-        {Object.keys(traits).map((trait) => (
-          <View key={trait} style={styles.sliderContainer}>
-            <Text style={styles.traitName}>
-              {trait.charAt(0).toUpperCase() + trait.slice(1)}
-            </Text>
-            <View style={styles.labelRow}>
-              <Text style={styles.labelLow}>{traitLabels[trait].low}</Text>
-              <Text style={styles.labelHigh}>{traitLabels[trait].high}</Text>
+      <View style={styles.archetypeList}>
+        {archetypes.map((archetype) => (
+          <TouchableOpacity
+            key={archetype.id}
+            style={[
+              styles.archetypeCard,
+              selectedArchetype?.id === archetype.id &&
+                styles.archetypeCardSelected,
+            ]}
+            onPress={() => setSelectedArchetype(archetype)}
+          >
+            <Text style={styles.archetypeEmoji}>{archetype.emoji}</Text>
+            <View style={styles.archetypeInfo}>
+              <Text
+                style={[
+                  styles.archetypeName,
+                  selectedArchetype?.id === archetype.id &&
+                    styles.archetypeNameSelected,
+                ]}
+              >
+                {archetype.name}
+              </Text>
+              <Text style={styles.archetypeDescription}>
+                {archetype.shortDescription}
+              </Text>
             </View>
-            <Slider
-              style={styles.slider}
-              minimumValue={1}
-              maximumValue={10}
-              value={traits[trait]}
-              onValueChange={(value) => updateTrait(trait, value)}
-              minimumTrackTintColor="#4a7c59"
-              maximumTrackTintColor="#ccc"
-              thumbTintColor="#4a7c59"
-            />
-            <Text style={styles.value}>{traits[trait]}</Text>
-          </View>
+            {selectedArchetype?.id === archetype.id && (
+              <Text style={styles.checkmark}>✓</Text>
+            )}
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -203,58 +213,53 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 5,
   },
-  personalitySection: {
-    paddingHorizontal: 20,
-  },
-  personalityHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#4a7c59",
+    paddingHorizontal: 20,
+    marginBottom: 15,
   },
-  randomButton: {
-    backgroundColor: "#f0f0f0",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  randomButtonText: {
-    fontSize: 14,
-    color: "#333",
-  },
-  sliderContainer: {
+  archetypeList: {
+    paddingHorizontal: 20,
     marginBottom: 20,
   },
-  traitName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  labelRow: {
+  archetypeCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 5,
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "#f0f0f0",
   },
-  labelLow: {
-    fontSize: 12,
+  archetypeCardSelected: {
+    borderColor: "#4a7c59",
+    backgroundColor: "#f0f7f2",
+  },
+  archetypeEmoji: {
+    fontSize: 32,
+    marginRight: 15,
+  },
+  archetypeInfo: {
+    flex: 1,
+  },
+  archetypeName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 4,
+    color: "#333",
+  },
+  archetypeNameSelected: {
+    color: "#4a7c59",
+  },
+  archetypeDescription: {
+    fontSize: 14,
     color: "#666",
   },
-  labelHigh: {
-    fontSize: 12,
-    color: "#666",
-  },
-  slider: {
-    width: "100%",
-    height: 40,
-  },
-  value: {
-    textAlign: "center",
-    fontSize: 16,
+  checkmark: {
+    fontSize: 20,
     color: "#4a7c59",
     fontWeight: "bold",
   },

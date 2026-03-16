@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Use local backend instead of external PlantBook API
-const BASE_URL = "http://192.168.0.101:3000/api";
+const BASE_URL = "http://10.0.2.2:3000/api";
 
 // Search for plants by name
 export const searchPlants = async (searchText) => {

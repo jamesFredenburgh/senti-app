@@ -36,7 +36,6 @@ export default function PlantListScreen({ navigation }) {
 
   const handleLogout = () => {
     auth.signOut();
-    navigation.navigate("Auth");
   };
 
   const renderListView = () => (
@@ -80,16 +79,9 @@ export default function PlantListScreen({ navigation }) {
             <Text style={styles.singleAlias}>{plant.species.alias}</Text>
           )}
 
-          <View style={styles.statsContainer}>
-            <Text style={styles.statsTitle}>Personality</Text>
-            {Object.entries(plant.traits).map(([trait, value]) => (
-              <View key={trait} style={styles.statRow}>
-                <Text style={styles.statLabel}>
-                  {trait.charAt(0).toUpperCase() + trait.slice(1)}
-                </Text>
-                <Text style={styles.statValue}>{value}/10</Text>
-              </View>
-            ))}
+          <View style={styles.archetypeContainer}>
+            <Text style={styles.archetypeEmoji}>{plant.archetype?.emoji}</Text>
+            <Text style={styles.archetypeName}>{plant.archetype?.name}</Text>
           </View>
 
           <TouchableOpacity
@@ -297,30 +289,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-  statsContainer: {
+  archetypeContainer: {
+    alignItems: "center",
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: "#eee",
   },
-  statsTitle: {
-    fontSize: 16,
+  archetypeEmoji: {
+    fontSize: 50,
+    marginBottom: 10,
+  },
+  archetypeName: {
+    fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 12,
     color: "#4a7c59",
-  },
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "#666",
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: "bold",
   },
   talkButton: {
     backgroundColor: "#4a7c59",

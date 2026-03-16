@@ -194,6 +194,8 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Image,
+  ScrollView,
 } from "react-native";
 import { useState } from "react";
 import { searchPlants, getPlantDetails } from "../services/plantbookService";
@@ -230,6 +232,7 @@ export default function AddPlantScreen({ navigation }) {
 
     const speciesWithDetails = {
       ...species,
+      image_url: details?.image_url,
       careRequirements: details
         ? {
             minMoisture: details.min_soil_moist,
@@ -267,70 +270,78 @@ export default function AddPlantScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Add New Plant</Text>
+      <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
+        <Text style={styles.title}>Add New Plant</Text>
 
-      <Text style={styles.label}>Give your plant a name</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="e.g., Peter"
-        value={plantName}
-        onChangeText={setPlantName}
-      />
+        <Text style={styles.label}>Give your plant a name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g., Peter"
+          value={plantName}
+          onChangeText={setPlantName}
+        />
 
-      <Text style={styles.label}>Search for species</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="e.g., Monstera"
-        value={searchQuery}
-        onChangeText={handleSearch}
-      />
+        <Text style={styles.label}>Search for species</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g., Monstera"
+          value={searchQuery}
+          onChangeText={handleSearch}
+        />
 
-      {isSearching && <ActivityIndicator style={styles.loader} />}
+        {isSearching && <ActivityIndicator style={styles.loader} />}
 
-      {searchResults.length > 0 && (
-        <View style={styles.resultsContainer}>
-          <FlatList
-            data={searchResults}
-            keyExtractor={(item) => item.pid}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.resultItem}
-                onPress={() => handleSelectSpecies(item)}
-              >
-                <Text style={styles.resultText}>{item.display_pid}</Text>
-                {item.alias && (
-                  <Text style={styles.aliasText}>{item.alias}</Text>
-                )}
-              </TouchableOpacity>
+        {searchResults.length > 0 && (
+          <View style={styles.resultsContainer}>
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item) => item.pid}
+              scrollEnabled={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.resultItem}
+                  onPress={() => handleSelectSpecies(item)}
+                >
+                  <Text style={styles.resultText}>{item.display_pid}</Text>
+                  {item.alias && (
+                    <Text style={styles.aliasText}>{item.alias}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
+
+        {isLoadingDetails && (
+          <View style={styles.loadingDetails}>
+            <ActivityIndicator size="small" color="#4a7c59" />
+            <Text style={styles.loadingText}>Loading plant details...</Text>
+          </View>
+        )}
+
+        {selectedSpecies && !isLoadingDetails && (
+          <View style={styles.selectedContainer}>
+            {selectedSpecies.image_url && (
+              <Image
+                source={{ uri: selectedSpecies.image_url }}
+                style={styles.plantImage}
+              />
             )}
-          />
-        </View>
-      )}
+            <Text style={styles.selectedLabel}>Selected:</Text>
+            <Text style={styles.selectedText}>{selectedSpecies.display_pid}</Text>
+                      </View>
+        )}
+      </ScrollView>
 
-      {isLoadingDetails && (
-        <View style={styles.loadingDetails}>
-          <ActivityIndicator size="small" color="#4a7c59" />
-          <Text style={styles.loadingText}>Loading plant details...</Text>
-        </View>
-      )}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button} onPress={handleNext}>
+          <Text style={styles.buttonText}>Next</Text>
+        </TouchableOpacity>
 
-      {selectedSpecies && !isLoadingDetails && (
-        <View style={styles.selectedContainer}>
-          <Text style={styles.selectedLabel}>Selected:</Text>
-          <Text style={styles.selectedText}>{selectedSpecies.display_pid}</Text>
-          {selectedSpecies.careRequirements && (
-            <Text style={styles.careText}>Care requirements loaded ✓</Text>
-          )}
-        </View>
-      )}
-
-      <TouchableOpacity style={styles.button} onPress={handleNext}>
-        <Text style={styles.buttonText}>Next</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.link}>Cancel</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.link}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -338,8 +349,18 @@ export default function AddPlantScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#fff",
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
     padding: 20,
     paddingTop: 60,
+  },
+  buttonContainer: {
+    padding: 20,
+    paddingBottom: 30,
   },
   title: {
     fontSize: 28,
@@ -395,6 +416,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 20,
   },
+  plantImage: {
+    width: 250,
+    height: 250,
+    borderRadius: 8,
+    alignSelf: "center",
+    marginBottom: 10,
+  },
   selectedLabel: {
     fontSize: 14,
     color: "#666",
@@ -404,16 +432,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#4a7c59",
   },
-  careText: {
-    fontSize: 12,
-    color: "#4a7c59",
-    marginTop: 5,
-  },
-  button: {
+    button: {
     backgroundColor: "#4a7c59",
     padding: 15,
     borderRadius: 8,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   buttonText: {
     color: "white",

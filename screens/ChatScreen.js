@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useState } from "react";
 import { getPlantResponse } from "../services/openaiService";
-import { getMockSensorData } from "../services/mockSensorData";
 
 export default function ChatScreen({ route, navigation }) {
   const { plant } = route.params;
@@ -38,8 +37,8 @@ export default function ChatScreen({ route, navigation }) {
     setInputText("");
     setIsLoading(true);
 
-    // Get mock sensor data
-    const sensorData = getMockSensorData();
+    // Use real sensor data from Firestore, fall back to defaults if unavailable
+    const sensorData = plant.sensorData || { moisture: 25, light: 800, temperature: 22, humidity: 45 };
 
     // Get plant response from OpenAI
     const response = await getPlantResponse(plant, sensorData, inputText);
